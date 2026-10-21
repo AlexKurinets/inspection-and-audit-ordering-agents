@@ -144,7 +144,7 @@ def submit(ctx: Ctx, order: dict) -> dict:
                                "attempts": placed["attempts"], "errors": placed["errors"],
                                "replayed": placed["duplicate"]},
                               vendor_ref=placed["vendor_ref"], ordered_on=ctx.today)
-        what = f"{order['order_type'].replace('_', ' ')} ordered from {templates.VENDORS[vendor][0]}, " \
+        what = f"{templates.TYPE_NAMES[order['order_type']]} ordered from {templates.VENDORS[vendor][0]}, " \
                f"ref {placed['vendor_ref']}"
     pas.log_activity(ctx.conn, order["policy_number"], ctx.today, f"{order['kind'].title()}: {what}.")
     return om.update(ctx.conn, order, next_action_on=next_checkpoint(ctx, order))
@@ -318,7 +318,7 @@ def post(ctx: Ctx, order: dict) -> dict:
             audited, deposit, adj = (Decimal(rec["audited_premium"]), Decimal(rec["deposit_premium"]),
                                      Decimal(rec["adjustment"]))
         pas.post_audit(ctx.conn, order, basis, audited, deposit, adj, ctx.today, posted_by)
-        note = f"Audit: {basis} audit posted, premium {usd(audited)}, adjustment {usd(adj, True)}."
+        note = f"Audit: posted on an {basis} basis, premium {usd(audited)}, adjustment {usd(adj, True)}."
         payload = {"basis": basis, "audited_premium": audited, "adjustment": adj, "posted_by": posted_by}
     pas.log_activity(ctx.conn, order["policy_number"], ctx.today, note)
     return om.transition(ctx.conn, order, "closed", ctx.today, actor(order), "posted", payload)

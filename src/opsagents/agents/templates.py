@@ -11,6 +11,8 @@ VENDORS = {
     "HAP": ("Harrowgate Audit Partners", "555-0188"),
 }
 OPS_PHONE = "555-0110"
+TYPE_NAMES = {"physical": "physical audit", "phone": "phone audit", "full_survey": "full survey",
+              "desk_survey": "desk survey", "self": "self-audit"}
 SIGNATURE = f"Premium Audit and Loss Control\n{OPS_PHONE}"
 
 
