@@ -1,0 +1,74 @@
+# Ordering rules for the inspection and premium audit agents.
+#
+# This file is the specification the audit manager and the loss control lead sign off.
+# Every order records the version below and the rule hits that produced it, so a
+# change here is visible on every order placed afterwards. Amounts are USD.
+
+version: "2026.03-r4"
+
+inspections:
+  # New business is surveyed when it is bound if either condition holds.
+  new_business_min_premium: 10000
+  high_hazard_always: true
+  # Renewals are re-surveyed when the last survey is older than this at expiration.
+  reinspect_after_months: 36
+  renewal_min_premium: 10000
+  renewal_lead_days: 75
+  # A full on-site survey above this premium or for high-hazard classes, otherwise a desk survey.
+  full_survey_min_premium: 25000
+  vendors:
+    full_survey: LFS   # Larkspur Field Surveys, REST API
+    desk_survey: QRS   # Quillmate Risk Services, email only
+  due_days: 45
+  chase_vendor_after_days: 30
+  # Days after the agent contacts an unreachable insured before an underwriter decides.
+  insured_unreachable_escalate_days: 10
+  # Underwriting authority: these go to an underwriter before anything is posted.
+  underwriter_review:
+    risk_ratings: ["Poor"]
+    recommendation_priorities: ["Critical"]
+
+audits:
+  # General liability below this deposit premium is waived. Workers' comp is always audited.
+  waive_gl_below_premium: 2500
+  physical_min_premium: 25000
+  phone_min_premium: 5000          # below this, a mail-in self-audit
+  # Days before the period ends that each audit type is ordered, so the vendor can book
+  # the week after expiration. Cancellations are ordered when the cancellation is processed.
+  lead_days:
+    physical: 30
+    phone: 0
+    self: 0
+  vendors:
+    physical: HAP   # Harrowgate Audit Partners, REST API
+    phone: HAP
+    self: SELF      # the agent emails the insured directly
+  complete_within_days: 90
+  chase_vendor_days_before_due: 20
+  self_audit_reminder_days: [10, 20, 30]
+  self_audit_escalate_day: 45
+  # How far back the sweep looks for expired policies that were never audited.
+  backlog_lookback_days: 365
+
+authority:
+  # The agent posts an audit adjustment on its own only inside both limits.
+  audit_auto_post_max_abs: 2500
+  audit_auto_post_max_pct: 0.25
+  # Who resolves each exception. The agent itself can never move an order out of review.
+  roles:
+    audit:
+      variance_review: audit_reviewer
+      extraction_unverified: audit_reviewer
+      unlisted_class: underwriter
+      insured_non_responsive: audit_reviewer
+      business_closed: audit_reviewer
+      vendor_unreachable: ops_lead
+      sla_breach: ops_lead
+      mail_needs_person: ops_lead
+    inspection:
+      underwriter_review: underwriter
+      extraction_unverified: underwriter
+      insured_unreachable: underwriter
+      vendor_unreachable: ops_lead
+      sla_breach: ops_lead
+      mail_needs_person: ops_lead

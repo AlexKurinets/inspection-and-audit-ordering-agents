@@ -1,0 +1,89 @@
+name: inspection-audit-agents
+
+x-app: &app
+  build: .
+  image: inspection-audit-agents:local
+  environment: &env
+    DATABASE_URL: postgresql://ops:ops@db:5432/ops
+    SIM_URL: http://sim:8141
+    LLM_PROVIDER: ${LLM_PROVIDER:-offline}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    OPS_LLM_MODEL: ${OPS_LLM_MODEL:-claude-opus-5-5}
+    ROLE_TOKENS: ${ROLE_TOKENS:-audit_reviewer:demo-audit-reviewer,underwriter:demo-underwriter,ops_lead:demo-ops-lead}
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ops
+      POSTGRES_PASSWORD: ops
+      POSTGRES_DB: ops
+    ports:
+      - "${POSTGRES_PORT:-5474}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ops -d ops"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Vendor APIs, the email-only vendor, insureds and the shared mailbox.
+  sim:
+    <<: *app
+    command: uvicorn vendorsim.app:app --host 0.0.0.0 --port 8141
+    ports:
+      - "${SIM_PORT:-8141}:8141"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8141/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Seeds the synthetic book and its four months of history on first start, then serves the API.
+  api:
+    <<: *app
+    command: sh -c "opsagents seed --if-empty && exec uvicorn opsagents.api:app --host 0.0.0.0 --port 8140"
+    ports:
+      - "${API_PORT:-8140}:8140"
+    depends_on:
+      sim:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8140/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 900s
+
+  worker:
+    <<: *app
+    command: opsagents worker --interval 5
+    depends_on:
+      api:
+        condition: service_healthy
+
+  dashboard:
+    <<: *app
+    command: >-
+      streamlit run dashboard/app.py --server.port 8540 --server.address 0.0.0.0 --server.headless true
+      --browser.gatherUsageStats false
+    environment:
+      <<: *env
+      API_URL: http://api:8140
+    ports:
+      - "${DASHBOARD_PORT:-8540}:8540"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8540/_stcore/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
