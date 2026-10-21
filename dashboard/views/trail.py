@@ -80,8 +80,8 @@ if rec:
 
 if d["endorsement"]:
     en = d["endorsement"]
-    st.info(md(f"Posted to the policy system on {en['posted_on']} by {en['posted_by']}: {en['basis']} audit, "
-               f"adjustment {signed(float(en['adjustment']))}."), icon=":material/task_alt:")
+    st.info(md(f"Posted to the policy system on {en['posted_on']} by {en['posted_by']}, on an {en['basis']} "
+               f"basis, adjustment {signed(float(en['adjustment']))}."), icon=":material/task_alt:")
 
 st.subheader("Policy system activity")
 st.dataframe(pd.DataFrame(d["pas_activity"]), hide_index=True, use_container_width=True)
